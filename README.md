@@ -11,9 +11,12 @@ A hipótese principal se molda sob a perspectiva de que a utilização dos arqui
 **Origem:** [HMS - Harmful Brain Activity Classification](https://www.kaggle.com/competitions/hms-harmful-brain-activity-classification/overview)
 
 A base é composta por metadados (train.csv e test.csv) que guiam para os dados brutos separados em diretórios. Os dados brutos contém trechos de 50 segundos de EEG (amostrados a 200 Hz) e espectrogramas cobrindo janelas de 10 minutos de 1.950 pacientes únicos.
-    - Metadados (train.csv): Possui 15 colunas, sendo 8 colunas de identificação e mapeamento, 1 coluna de texto com o consenso dos especialistas e 6 colunas de Target (votos numéricos para cada classe de anomalia).
-    - Features de Entrada (EEG Bruto - .parquet): Matrizes de 10.000 linhas × 20 colunas, representando o avanço do tempo *versus* a voltagem captada pelos canais de eletrodos cerebrais e um eletrocardiograma (EKG).
-    - Features de Entrada (Espectrogramas - .parquet): Matrizes de 300 linhas × 401 colunas, representando recortes de tempo *versus* frequências em Hertz divididas pelas regiões do cérebro.
+
+* Metadados (train.csv): Possui 15 colunas, sendo 8 colunas de identificação e mapeamento, 1 coluna de texto com o consenso dos especialistas e 6 colunas de Target (votos numéricos para cada classe de anomalia).
+    
+* Features de Entrada (EEG Bruto - .parquet): Matrizes de 10.000 linhas × 20 colunas, representando o avanço do tempo *versus* a voltagem captada pelos canais de eletrodos cerebrais e um eletrocardiograma (EKG).
+    
+* Features de Entrada (Espectrogramas - .parquet): Matrizes de 300 linhas × 401 colunas, representando recortes de tempo *versus* frequências em Hertz divididas pelas regiões do cérebro.
       
 ## Membros da Equipe e Papéis
 
