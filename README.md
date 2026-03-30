@@ -20,9 +20,9 @@ A base é composta por metadados (train.csv e test.csv) que guiam para os dados 
       
 ## Membros da Equipe e Papéis
 
-*   João Pedro Moreira Smolinski: [Full]
-*   Letícia Ruas de Lucca Rodrigues: [Full]
-*   Lívia Caroline Rodrigues Pereira: [Full]
+*   João Pedro Moreira Smolinski: Cientista de Dados + Analista de Dados (EDA, Visualização dos dados e apoio à modelagem)
+*   Letícia Ruas de Lucca Rodrigues: Cientista de Dados (Validação) (Treinamento, validação e otimização de modelos)
+*   Lívia Caroline Rodrigues Pereira: Cientista de Dados + Engenheira de Dados (Coleta, limpeza, tratamento de dados e preparação de pipelines)
 
 ## Pilha de Tecnologias
 
