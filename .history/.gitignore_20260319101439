@@ -1,0 +1,12 @@
+# Ignorar a pasta de dados do Kaggle (NÃO SUBIR OS 30GB!)
+data/
+
+# Ignorar ambientes virtuais do Python
+.venv/
+venv/
+env/
+
+# Ignorar arquivos temporários e de cache do Jupyter/Python
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
