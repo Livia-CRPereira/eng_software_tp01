@@ -44,22 +44,22 @@ def exam_exists(id_exam):
 # 1. CARREGAMENTO DOS MODELOS
 # ---------------------------
 @st.cache_resource
-def carregar_modelos():
-    pasta_modelos = 'modelos_treinados'
-    modelos = []
+def model_load():
+    model_dir = 'modelos_treinados'
+    models = []
     
     for i in range(5):
         model = xgb.XGBClassifier()
-        caminho_arquivo = os.path.join(pasta_modelos, f'xgboost_fold_{i}.json')
-        model.load_model(caminho_arquivo)
-        modelos.append(model)
+        file_path = os.path.join(model_dir, f'xgboost_fold_{i}.json')
+        model.load_model(file_path)
+        models.append(model)
         
-    return modelos
+    return models
 
 # -----------------------
 # 2. EXTRAÇÃO DE FEATURES
 # -----------------------
-def extrair_features_paciente(img):
+def feature_extraction(img):
 
     mean_global = np.nanmean(img, axis=0)
     std_global = np.nanstd(img, axis=0)
@@ -97,28 +97,44 @@ def plot_spectro(matrix, title='Espectrograma do Paciente'):
 # 3. INTERFACE BÁSICA 
 # -------------------
 st.title("🧠 MVP: Sistema de Apoio de Diagnóstico")
-aba_triagem, aba_conversor, aba_historico = st.tabs(["🩺 Triagem (Diagnóstico)", "⚙️ Conversor de Arquivos", "📜 Pacientes Salvos"])
+diagnosis_tab, conversor_tab, history_tab = st.tabs(["🩺 Triagem (Diagnóstico)", "⚙️ Conversor de Arquivos", "📜 Pacientes Salvos"])
 
-with aba_triagem:
+with st.sidebar:
+    st.header('Centro de Ajuda')
+    with st.popover('Glossário de Anomalias'):
+        st.markdown("""
+        ### Definições das Anomalias
+                    
+        * **Seizure: Convulsão**
+        * **LPD: Descargas Periódicas Lateralizadas**
+        * **GPD: Descargas Periódicas Generalizadas**
+        * **LRDA: Atividade Delta Rítmica Lateralizada**
+        * **GRDA: Atividade Delta Rítmica Generalizada**
+        * **Other: Outros (Padrões que não se encaixam nas anomalias especificadas)**
+                    """)
+        
+    st.divider()
+
+with diagnosis_tab:
     st.subheader("Análise de Paciente")
     st.write("Insira o espectrograma do paciente para obter o cálculo do Ensemble.")
 
-    modelos_ensemble = carregar_modelos()
-    arquivo = st.file_uploader("Upload do Espectrograma (.npy)", type=["npy"])
+    models_ensemble = model_load()
+    file = st.file_uploader("Upload do Espectrograma (.npy)", type=["npy"])
 
-    if arquivo is not None:
+    if file is not None:
         st.info("Arquivo recebido! Iniciando extração e inferência...")
         
-        img_paciente = np.load(arquivo)
+        exam_img = np.load(file)
 
-        X_paciente = extrair_features_paciente(img_paciente)
+        X_exam = feature_extraction(exam_img)
         
-        probabilidades_acumuladas = np.zeros(6)
+        cumulative_probs = np.zeros(6)
         
-        for modelo in modelos_ensemble:
-            probabilidades_acumuladas += modelo.predict_proba(X_paciente)[0]
+        for model in models_ensemble:
+            cumulative_probs += model.predict_proba(X_exam)[0]
             
-        probabilidade_final = probabilidades_acumuladas / len(modelos_ensemble)
+        final_prob = cumulative_probs / len(models_ensemble)
         
         # ---------------------
         # 4. SAÍDA DO RESULTADO
@@ -128,14 +144,14 @@ with aba_triagem:
         classes = ['Seizure (Convulsão)', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other (Outros)']
         
         st.subheader("Probabilidades Calculadas:")
-        for nome_classe, prob in zip(classes, probabilidade_final):
-            st.write(f"**{nome_classe}:** {prob * 100:.2f}%")
+        for class_name, prob in zip(classes, final_prob):
+            st.write(f"**{class_name}:** {prob * 100:.2f}%")
 
         # -------------------
         # 5. SAÍDA DO GRÁFICO
         # -------------------
 
-        st.pyplot(plot_spectro(img_paciente))
+        st.pyplot(plot_spectro(exam_img))
 
         st.divider()
         st.subheader("💾 Salvar Resultado")
@@ -147,10 +163,10 @@ with aba_triagem:
             elif exam_exists(id_input):
                 st.warning(f"Erro: O ID '{id_input}' já está cadastrado, use outro ou exclua o antigo")
             else:
-                save_history(id_input, probabilidade_final, img_paciente)
+                save_history(id_input, final_prob, exam_img)
                 st.success(f"Paciente {id_input} salvo com sucesso!")
 
-with aba_conversor:
+with conversor_tab:
     st.subheader("Conversor de Espectrograma (.parquet para .npy)")
 
     arquivo_parquet = st.file_uploader("Faça o upload do espectrograma bruto (.parquet)", type=["parquet"])
@@ -178,16 +194,60 @@ with aba_conversor:
             mime="application/octet-stream"
         )
 
-with aba_historico:
+with history_tab:
     st.subheader("Histórico de Exames salvos")
-    historico = load_history()
+    history = load_history()
 
-    if not historico:
+    if not history:
         st.info("Nenhum paciente salvo ainda.")
     else:
         classes = ['Seizure (Convulsão)', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other (Outros)']
 
-        for id_exam, data in historico.items():
+        st.subheader("Visão Geral dos Exames")
+
+        ids_exams = list(history.keys())
+        probs_matrix = []
+        main_results = []
+
+        for data in history.values():
+            probs = data['Probabilidades']
+            probs_matrix.append(probs)
+
+            main_results.append(classes[np.argmax(probs)])
+        
+        col_m1, col_m2 = st.columns(2)
+        df_count = pd.Series(main_results).value_counts()
+        common_anomaly = df_count.index[0]
+
+        col_m1.metric("Total de Exames Salvos", len(ids_exams))
+        col_m2.metric("Anomalia mais frequente", common_anomaly)
+
+        col_graf1, col_graf2 = st.columns(2)
+
+        with col_graf1:
+            st.write("**Distribuição de Diagnósticos Principais**")
+            st.bar_chart(df_count)
+
+        with col_graf2:
+            st.write("**Mapa de Calor de Risco por Paciente**")
+
+            fig_hm, ax_hm = plt.subplots(figsize=(6, 4))
+            cax_hm = ax_hm.imshow(probs_matrix, aspect='auto', cmap='Reds', vmin=0, vmax=1)
+            fig_hm.colorbar(cax_hm, ax=ax_hm, label='Probabilidade')
+
+            ax_hm.set_xticks(range(6))
+            ax_hm.set_xticklabels(classes, rotation=45, ha="right")
+            ax_hm.set_yticks(range(len(ids_exams)))
+            ax_hm.set_yticklabels(ids_exams)
+
+            st.pyplot(fig_hm)
+
+        st.divider()
+            
+
+        st.subheader("Detalhamento de Exames")
+
+        for id_exam, data in history.items():
             with st.expander(f"Exame: {id_exam}"):
                 col_data, col_chart = st.columns([2, 1])
                 
