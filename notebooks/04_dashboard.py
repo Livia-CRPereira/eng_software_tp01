@@ -4,14 +4,48 @@ import xgboost as xgb
 import os
 import pandas as pd
 import io
+import json
+import matplotlib.pyplot as plt
+import time
 
-# ---------------------------------------------------------
-# 1. CARREGAMENTO DOS MODELOS (CACHE)
-# ---------------------------------------------------------
-# st.cache_resource garante que os modelos só sejam lidos do disco uma vez, poupando tempo.
+DB_FILE = 'exams_saved.json'
+
+def load_history():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_history(id_exam, probs, spectro_matrix):
+    history = load_history()
+
+    history[id_exam] = {
+        "Probabilidades": probs.tolist(),
+        "Espectrograma": spectro_matrix.tolist()
+    }
+
+    with open(DB_FILE, "w") as f:
+        json.dump(history, f)
+
+def delete_history(id_exam):
+    history = load_history()
+    if id_exam in history:
+        del history[id_exam]
+        with open(DB_FILE, 'w') as f:
+            json.dump(history, f)
+        return True
+    return False
+
+def exam_exists(id_exam):
+    history = load_history()
+    return id_exam in history
+
+# ---------------------------
+# 1. CARREGAMENTO DOS MODELOS
+# ---------------------------
 @st.cache_resource
 def carregar_modelos():
-    pasta_modelos = 'modelos_treinados' # Ajuste se o caminho da sua pasta for outro
+    pasta_modelos = 'modelos_treinados'
     modelos = []
     
     for i in range(5):
@@ -22,29 +56,23 @@ def carregar_modelos():
         
     return modelos
 
-# ---------------------------------------------------------
-# 2. EXTRAÇÃO DE FEATURES (Versão 2 - Dinâmica Temporal)
-# ---------------------------------------------------------
-def extrair_features_paciente(arquivo_upload):
-    # Carrega o arquivo .npy enviado pelo Streamlit
-    img = np.load(arquivo_upload)
+# -----------------------
+# 2. EXTRAÇÃO DE FEATURES
+# -----------------------
+def extrair_features_paciente(img):
 
-    # Estatísticas Globais
     mean_global = np.nanmean(img, axis=0)
     std_global = np.nanstd(img, axis=0)
     max_global = np.nanmax(img, axis=0)
     min_global = np.nanmin(img, axis=0)
 
-    # Dinâmica Temporal (Fatiamento em 3 janelas)
     mean_t1 = np.nanmean(img[:100, :], axis=0)
     mean_t2 = np.nanmean(img[100:200, :], axis=0)
     mean_t3 = np.nanmean(img[200:, :], axis=0)
 
-    # Variância Local
     std_t1 = np.nanstd(img[:100, :], axis=0)
     std_t3 = np.nanstd(img[200:, :], axis=0)
 
-    # Vetor final de 3.600 características
     feature_vector = np.concatenate([
         mean_global, std_global, max_global, min_global,
         mean_t1, mean_t2, mean_t3, std_t1, std_t3
@@ -52,59 +80,76 @@ def extrair_features_paciente(arquivo_upload):
 
     feature_vector = np.nan_to_num(feature_vector, nan=0.0)
     
-    # Transforma o vetor (3600,) em uma matriz de uma linha (1, 3600) exigida pelo XGBoost
     return feature_vector.reshape(1, -1)
 
-# ---------------------------------------------------------
+def plot_spectro(matrix, title='Espectrograma do Paciente'):
+    fig, ax = plt.subplots(figsize=(10, 4))
+    cax = ax.imshow(matrix.T, aspect='auto', origin='lower', cmap='viridis')
+    fig.colorbar(cax, ax=ax, label='Magnitude')
+
+    ax.set_title(title)
+    ax.set_xlabel("Tempo")
+    ax.set_ylabel("Frequências")
+
+    return fig
+
+# -------------------
 # 3. INTERFACE BÁSICA 
-# ---------------------------------------------------------
+# -------------------
 st.title("🧠 MVP: Sistema de Apoio de Diagnóstico")
-aba_triagem, aba_conversor = st.tabs(["🩺 Triagem (Diagnóstico)", "⚙️ Conversor de Arquivos"])
+aba_triagem, aba_conversor, aba_historico = st.tabs(["🩺 Triagem (Diagnóstico)", "⚙️ Conversor de Arquivos", "📜 Pacientes Salvos"])
 
 with aba_triagem:
     st.subheader("Análise de Paciente")
     st.write("Insira o espectrograma do paciente para obter o cálculo do Ensemble.")
 
-    # Inicia os modelos
     modelos_ensemble = carregar_modelos()
-
-    # Área de Upload
     arquivo = st.file_uploader("Upload do Espectrograma (.npy)", type=["npy"])
 
     if arquivo is not None:
         st.info("Arquivo recebido! Iniciando extração e inferência...")
         
-        # Processa o arquivo gerando as 3600 características
-        X_paciente = extrair_features_paciente(arquivo)
+        img_paciente = np.load(arquivo)
+
+        X_paciente = extrair_features_paciente(img_paciente)
         
-        # Predição com o Ensemble (Junta Médica)
         probabilidades_acumuladas = np.zeros(6)
         
         for modelo in modelos_ensemble:
-            # Pega a primeira linha de predições já que temos só 1 paciente
             probabilidades_acumuladas += modelo.predict_proba(X_paciente)[0]
             
-        # Tira a média dos 5 modelos
-        probabilidade_final = probabilidades_acumuladas / 5.0
+        probabilidade_final = probabilidades_acumuladas / len(modelos_ensemble)
         
-        # ---------------------------------------------------------
-        # 4. SAÍDA DE DADOS (Output)
-        # ---------------------------------------------------------
+        # ---------------------
+        # 4. SAÍDA DO RESULTADO
+        # ---------------------
         st.success("Inferência Concluída!")
         
-        # Dicionário mapeando os resultados para as 6 classes
         classes = ['Seizure (Convulsão)', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other (Outros)']
         
-        # Mostra de forma crua, só para garantir a matemática. O Colega 2 vai deixar isso bonito!
         st.subheader("Probabilidades Calculadas:")
         for nome_classe, prob in zip(classes, probabilidade_final):
-            # Multiplica por 100 para mostrar em formato de porcentagem
             st.write(f"**{nome_classe}:** {prob * 100:.2f}%")
 
-        # ------------------------------------------------------------
-        # ATENÇÃO: Usar 1544207007.npy de exemplo (real: 0.92 para LPD)
-        # ------------------------------------------------------------
-        
+        # -------------------
+        # 5. SAÍDA DO GRÁFICO
+        # -------------------
+
+        st.pyplot(plot_spectro(img_paciente))
+
+        st.divider()
+        st.subheader("💾 Salvar Resultado")
+        id_input = st.text_input("Identificador do Paciente/Exame (ex: PAC-123)")
+
+        if st.button("Confirmar e Salvar"):
+            if not id_input:
+                st.error("Insira um ID para salvar")
+            elif exam_exists(id_input):
+                st.warning(f"Erro: O ID '{id_input}' já está cadastrado, use outro ou exclua o antigo")
+            else:
+                save_history(id_input, probabilidade_final, img_paciente)
+                st.success(f"Paciente {id_input} salvo com sucesso!")
+
 with aba_conversor:
     st.subheader("Conversor de Espectrograma (.parquet para .npy)")
 
@@ -113,28 +158,57 @@ with aba_conversor:
     if arquivo_parquet is not None:
         st.info("Lendo arquivo bruto...")
         
-        # 1. Lê o arquivo parquet
         df_espectro = pd.read_parquet(arquivo_parquet)
         
-        # 2. Geralmente, no Kaggle, tem uma coluna 'time' que não vai pro modelo. 
-        # Precisamos pegar só os números (as 400 colunas de frequências).
         if 'time' in df_espectro.columns:
             df_espectro = df_espectro.drop(columns=['time'])
             
-        # 3. Transforma o DataFrame em uma matriz NumPy e preenche os vazios com 0
         matriz_npy = df_espectro.fillna(0).values
         
-        # 4. Salva a matriz em um "arquivo fantasma" na memória para o download
         buffer_memoria = io.BytesIO()
         np.save(buffer_memoria, matriz_npy)
-        buffer_memoria.seek(0) # Volta o ponteiro para o início do arquivo
+        buffer_memoria.seek(0)
         
         st.success("Conversão finalizada com sucesso!")
         
-        # 5. Cria o botão de download mágico do Streamlit
         st.download_button(
             label="📥 Baixar arquivo .npy",
             data=buffer_memoria,
             file_name="espectrograma_pronto.npy",
             mime="application/octet-stream"
         )
+
+with aba_historico:
+    st.subheader("Histórico de Exames salvos")
+    historico = load_history()
+
+    if not historico:
+        st.info("Nenhum paciente salvo ainda.")
+    else:
+        classes = ['Seizure (Convulsão)', 'LPD', 'GPD', 'LRDA', 'GRDA', 'Other (Outros)']
+
+        for id_exam, data in historico.items():
+            with st.expander(f"Exame: {id_exam}"):
+                col_data, col_chart = st.columns([2, 1])
+                
+                with col_data:
+                    st.write("**Probabilidades de Anomalia:**")
+                    df_resume = pd.DataFrame({
+                        "Classe": classes, 
+                        "Probabilidade": [f"{p*100:.2f}%" for p in data['Probabilidades']]
+                    })
+
+                    st.table(df_resume)
+
+                with col_chart:
+                    matrix = np.array([data['Espectrograma']])
+                    st.pyplot(plot_spectro(matrix, title=f'Espectrograma: {id_exam}'))
+
+
+                if st.button(f"Remover {id_exam}", key=f'del_{id_exam}'):
+                    if delete_history(id_exam):
+                        st.toast(f'Exame {id_exam} removido')
+
+                        time.sleep(1)
+
+                        st.rerun()
