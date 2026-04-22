@@ -3,6 +3,7 @@
 ## Objetivos e Principais Features
 
 Atualmente, a detecção de atividades cerebrais prejudiciais em pacientes críticos é feita, em grande parte, por análise manual de exames de eletroencefalografia (EEG), um processo sujeito a erros causados por fadiga, divergência entre especialistas e alto custo. Este projeto tem como objetivo desenvolver um modelo que melhore a precisão na classificação e detecção de padrões cerebrais a partir de dados de EEG, contribuindo para diagnósticos mais rápidos e tratamentos mais eficazes.
+
  A hipótese principal é que a combinação dos sinais brutos de EEG, que registram variações elétricas de curto prazo, com espectrogramas, que representam o comportamento das frequências cerebrais em janelas maiores de tempo, fornece uma base eficiente para treinar um modelo capaz de identificar precocemente problemas como convulsões, derrames e paradas cardíacas.
 
 
