@@ -2,9 +2,9 @@
 
 ## Objetivos e Principais Features
 
-Atualmente, profissionais da saúde detectam atividades cerebrais prejudiciais com análise manual de eletroencefalografia (EEG), exame realizado em pacientes em estado crítico. Esse processo, porém, está propenso a erros relacionados à fadiga e problemas de confiabilidade entre revisores, além de ser um processo caro. Dessa forma, o objetivo desse projeto é desenvolver um modelo que melhore a precisão de classificação e detecção de padrões da atividade cerebral a partir da EEG, contribuindo para um diagnóstico mais rápido de possíveis problemas e, consequentemente, tratamentos mais eficazes. O modelo será treinado com dados de EEG, utilizando anotações de especialistas como "ground truth". 
+Atualmente, a detecção de atividades cerebrais prejudiciais em pacientes críticos é feita, em grande parte, por análise manual de exames de eletroencefalografia (EEG), um processo sujeito a erros causados por fadiga, divergência entre especialistas e alto custo. Este projeto tem como objetivo desenvolver um modelo que melhore a precisão na classificação e detecção de padrões cerebrais a partir de dados de EEG, contribuindo para diagnósticos mais rápidos e tratamentos mais eficazes.
+ A hipótese principal é que a combinação dos sinais brutos de EEG, que registram variações elétricas de curto prazo, com espectrogramas, que representam o comportamento das frequências cerebrais em janelas maiores de tempo, fornece uma base eficiente para treinar um modelo capaz de identificar precocemente problemas como convulsões, derrames e paradas cardíacas.
 
-A hipótese principal se molda sob a perspectiva de que a utilização dos arquivos de EEG, que capturam as variações elétricas de curtíssimo prazo, juntamente às frequências do cérebro registradas pelos espectogramas, que registram o comportamento das frequências do cérebro em janelas maiores de tempo, consigam ser uma boa base para treinar o modelo, permitindo uma construção de modelo que identifique corretamente padrões de atividades prejudiciais no cérebro, identificando problemas como convulsões, derrames e paradas cardíacas de forma precoce. 
 
 ### Dataset
 
